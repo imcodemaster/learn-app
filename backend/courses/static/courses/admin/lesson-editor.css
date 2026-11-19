@@ -1,0 +1,29 @@
+.li-md { width: 100%; }
+.li-md-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.li-md-toolbar button {
+  border: 1px solid var(--border-color, #ccc); background: var(--body-bg, #fff); color: var(--body-fg, #333);
+  border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 13px;
+}
+.li-md-toolbar button:hover { background: var(--primary, #4338ca); color: #fff; border-color: var(--primary, #4338ca); }
+.li-md-panes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .li-md-panes { grid-template-columns: 1fr; } }
+.li-md-panes textarea.li-markdown {
+  width: 100%; box-sizing: border-box; min-height: 520px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px; line-height: 1.55;
+}
+.li-md-preview-box { border: 1px solid var(--border-color, #ddd); border-radius: 8px; background: var(--body-bg, #fff); }
+.li-md-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color, #ddd); color: var(--body-quiet-color, #666);
+}
+.li-md-preview { padding: 12px 18px; max-height: 640px; overflow: auto; font-size: 15px; line-height: 1.6; }
+.li-md-preview img { max-width: 100%; border-radius: 6px; }
+.li-md-preview pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 8px; overflow-x: auto; }
+.li-md-preview code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+.li-md-preview :not(pre) > code { background: rgba(67, 56, 202, .08); padding: 1px 5px; border-radius: 4px; }
+.li-md-preview blockquote { border-left: 4px solid var(--primary, #4338ca); margin: 12px 0; padding: 4px 14px; background: rgba(67, 56, 202, .05); }
+.li-md-preview table { border-collapse: collapse; }
+.li-md-preview th, .li-md-preview td { border: 1px solid var(--border-color, #ddd); padding: 6px 10px; }
+.li-md-preview ul, .li-md-preview ol { padding-left: 22px; }
+.li-md-preview li { list-style: inherit; }
+.li-md-empty { color: var(--body-quiet-color, #888); font-style: italic; }

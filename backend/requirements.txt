@@ -1,0 +1,11 @@
+Django>=5.2,<5.3
+djangorestframework>=3.15,<3.17
+PyJWT[crypto]>=2.8,<3
+requests>=2.31,<3
+Pillow>=10.3
+whitenoise>=6.6,<7
+gunicorn>=22.0
+# PostgreSQL driver (recommended database)
+psycopg[binary]>=3.1,<4
+# For MySQL instead, also install: mysqlclient>=2.2
+# For a Redis cache (CACHE_URL=redis://...), also install: redis>=5

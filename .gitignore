@@ -1,0 +1,11 @@
+# Local output of scripts/windows/setup_and_build.ps1 and push_to_github.ps1
+setup-log.txt
+setup-status.txt
+push-log.txt
+.source-unpacked
+_source.zip
+*.apk
+
+# Files the Claude desktop app saves into this folder, and zip copies of the project
+Claude outputs/
+*.zip

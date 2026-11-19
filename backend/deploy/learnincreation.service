@@ -1,0 +1,19 @@
+# systemd service for running the backend with Gunicorn on a VPS (without Docker).
+# Copy to /etc/systemd/system/learnincreation.service, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now learnincreation
+[Unit]
+Description=LearnInCreation backend (Django + Gunicorn)
+After=network.target postgresql.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/learnincreation/backend
+EnvironmentFile=/var/www/learnincreation/backend/.env
+ExecStart=/var/www/learnincreation/backend/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 60
+Restart=always
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
