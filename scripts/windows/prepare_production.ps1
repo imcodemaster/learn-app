@@ -7,16 +7,14 @@
          Android installs an update only when it is signed with the same key,
          so keep a backup of the key forever. An existing key is never replaced.
       2. Makes a hard-to-guess admin address and a strong admin password.
-      3. Writes everything to paste into GitHub and Render into
-         PRODUCTION-SECRETS.txt in the project folder, and the signing key as
-         text (for GitHub) into PRODUCTION-KEYSTORE-BASE64.txt. Both stay out
-         of Git. Then it opens PRODUCTION-SECRETS.txt in Notepad.
+      3. Writes the values to paste into Render into PRODUCTION-SECRETS.txt in
+         the project folder (kept out of Git) and opens it in Notepad.
+    PUBLISH-APP.cmd later signs the published app with this key on this PC.
 #>
 
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $SecretsFile = Join-Path $Root 'PRODUCTION-SECRETS.txt'
-$Base64File = Join-Path $Root 'PRODUCTION-KEYSTORE-BASE64.txt'
 $KeyStore = Join-Path $Root 'app\android\app\release.jks'
 $KeyProps = Join-Path $Root 'app\android\key.properties'
 $Alias = 'learnincreation'
@@ -71,9 +69,6 @@ try {
 
     if (Test-Path $KeyStore) {
         if (Test-Path $SecretsFile) {
-            if (-not (Test-Path $Base64File)) {
-                [System.IO.File]::WriteAllText($Base64File, [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($KeyStore)), $Ascii)
-            }
             Write-Host 'A release key already exists, so nothing was changed (app updates need that same key).' -ForegroundColor Yellow
             Write-Host 'Opening PRODUCTION-SECRETS.txt.'
             Start-Process notepad.exe -ArgumentList ('"' + $SecretsFile + '"')
@@ -106,8 +101,6 @@ try {
         if ($line -match '^\s*SHA1:\s*(\S+)') { $sha1 = $Matches[1] }
         elseif ($line -match '^\s*SHA256:\s*(\S+)') { $sha256 = $Matches[1] }
     }
-    $base64 = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($KeyStore))
-    [System.IO.File]::WriteAllText($Base64File, $base64, $Ascii)
     $created = Get-Date -Format 'yyyy-MM-dd HH:mm'
 
     $lines = @(
@@ -120,24 +113,11 @@ try {
         'reinstall the app.',
         '',
         '========================================================================',
-        '1) GitHub: github.com/imcodemaster/learn-app-releases > Settings >',
-        '   Secrets and variables > Actions > "New repository secret".',
-        '   Add these four secrets (name, then value):',
+        '1) Release key (app\android\app\release.jks)',
         '',
-        'ANDROID_KEY_ALIAS',
-        $Alias,
-        '',
-        'ANDROID_KEYSTORE_PASSWORD',
-        $storePassword,
-        '',
-        'ANDROID_KEY_PASSWORD',
-        $storePassword,
-        '',
-        'ANDROID_KEYSTORE_BASE64',
-        '(the long text in PRODUCTION-KEYSTORE-BASE64.txt in this folder: open that',
-        ' file, press Ctrl+A, then Ctrl+C, and paste it as the value)',
-        '',
-        'Then: Actions tab > "Build and publish the app" > "Run workflow".',
+        "Key alias:          $Alias",
+        "Key store password: $storePassword   (the key password is the same)",
+        'PUBLISH-APP.cmd uses the key on this PC; nothing goes to GitHub.',
         '',
         '========================================================================',
         '2) Render: the values Render asks for when you create the Blueprint',
@@ -165,8 +145,7 @@ try {
     Write-Host 'Done.' -ForegroundColor Green
     Write-Host ('  Release key:     ' + $KeyStore)
     Write-Host ('  Values to paste: ' + $SecretsFile)
-    Write-Host ('  Key as text:     ' + $Base64File)
-    Write-Host 'Back up release.jks and PRODUCTION-SECRETS.txt now. Opening PRODUCTION-SECRETS.txt...'
+    Write-Host 'Back up both files now. Opening PRODUCTION-SECRETS.txt...'
     Start-Process notepad.exe -ArgumentList ('"' + $SecretsFile + '"')
 } catch {
     Write-Host ''

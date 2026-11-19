@@ -121,7 +121,7 @@ try {
     $private = @('backend/.env', 'backend/db.sqlite3', 'backend/ADMIN-LOGIN.txt', 'backend/media/x.png',
                  'app/android/local.properties', 'app/android/key.properties', 'app/android/app/upload.jks',
                  'app/android/app/release.jks', 'PRODUCTION-SECRETS.txt', 'PRODUCTION-KEYSTORE-BASE64.txt',
-                 'LearnInCreation-WiFi-test.apk', 'setup-log.txt')
+                 'LearnInCreation-WiFi-test.apk', 'LearnInCreation.apk', 'setup-log.txt')
     foreach ($p in $private) {
         if ((Invoke-Git -GitArgs @('check-ignore', '-q', '--no-index', '--', $p) -Quiet) -ne 0) {
             throw ('Safety stop: ' + $p + ' is not covered by .gitignore, so it could be uploaded. Nothing was uploaded.')
@@ -133,7 +133,7 @@ try {
     Info 'Private files are excluded.'
 
     $paths = @('.gitignore', '.gitattributes', 'README.md', 'render.yaml', 'SETUP-AND-BUILD-ON-WINDOWS.cmd',
-               'START-BACKEND.cmd', 'PUSH-TO-GITHUB.cmd', 'PREPARE-PRODUCTION.cmd', 'scripts', 'app', 'backend', '.github')
+               'START-BACKEND.cmd', 'PUSH-TO-GITHUB.cmd', 'PREPARE-PRODUCTION.cmd', 'PUBLISH-APP.cmd', 'scripts', 'app', 'backend', '.github')
     $present = @($paths | Where-Object { Test-Path (Join-Path $Root $_) })
     if ((Invoke-Git -GitArgs (@('add', '-A', '--') + $present) -Quiet) -ne 0) { throw 'git add failed. See push-log.txt.' }
     $staged = @((Get-GitText @('diff', '--cached', '--name-only')) -split "`n" | Where-Object { $_ })

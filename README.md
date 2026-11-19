@@ -49,7 +49,7 @@ app/                     Flutter app
   lib/services/          API calls, Razorpay checkout, Google sign-in
   android/               Android project
 scripts/windows/         one-click setup, build, GitHub upload and production key for Windows
-scripts/github/          the workflow that builds and publishes the app (runs in learn-app-releases)
+scripts/github/          the workflow that publishes the app (lives in learn-app-releases)
 render.yaml              the live server on Render
 ```
 
@@ -125,9 +125,9 @@ flutter build apk --release \
 
 The APK is written to `app/build/app/outputs/flutter-apk/app-release.apk`.
 
-### …or let GitHub build it (no Flutter install needed)
+### Publish it as a download link
 
-The workflow in `scripts/github/build-apk.yml` builds the app on GitHub's servers from this repository's `main` branch. It runs in the separate public `learn-app-releases` repository, which also holds the public download; setting it up is step 5 of "On Render, with app downloads from GitHub" in section 3. To build without publishing, untick **Publish** when you run it and download the APK from the run's *Artifacts*.
+Double-click **`PUBLISH-APP.cmd`**. It builds the release APK on this PC for `https://api.learnincreation.com`, checks that it is signed with your release key, and publishes it in the public `learn-app-releases` repository on GitHub. Setting that repository up once is step 5 of "On Render, with app downloads from GitHub" in section 3.
 
 ### Signing (do this before sharing the app widely)
 
@@ -138,9 +138,7 @@ keytool -genkey -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 100
 ```
 
 - **Local builds:** copy `release.jks` to `app/android/app/`. Then create `app/android/key.properties` containing `storeFile=release.jks`, `storePassword=…`, `keyAlias=learnincreation` and `keyPassword=…`.
-- **GitHub builds:** in `learn-app-releases`, add the secrets `ANDROID_KEYSTORE_BASE64` (the file as base64: `base64 -w0 release.jks`, or on Windows PowerShell `[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.jks"))`), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`.
-
-`PREPARE-PRODUCTION.cmd` (section 3) does all of this for you: it creates the key and `key.properties`, and writes the four secret values to `PRODUCTION-SECRETS.txt` and `PRODUCTION-KEYSTORE-BASE64.txt`.
+`PREPARE-PRODUCTION.cmd` (section 3) does this for you: it creates `release.jks` and `key.properties`. `PUBLISH-APP.cmd` signs every published APK with that key on your PC, so the key never goes to GitHub.
 
 Never commit `release.jks` or `key.properties`; they're already in `.gitignore`.
 
@@ -152,19 +150,17 @@ Never commit `release.jks` or `key.properties`; they're already in `.gitignore`.
 
 GitHub holds the code and builds the app; Render runs the backend at `https://api.learnincreation.com` and redeploys it after every push to `main` that changes `backend/`. `render.yaml` describes the server and database.
 
-1. **On your PC, once:** double-click **`PREPARE-PRODUCTION.cmd`**. It creates the app's release signing key (`app\android\app\release.jks`), **`PRODUCTION-SECRETS.txt`** with the values to paste below, and `PRODUCTION-KEYSTORE-BASE64.txt` (the key as text for GitHub), then opens `PRODUCTION-SECRETS.txt`. Back up `release.jks` and `PRODUCTION-SECRETS.txt` somewhere safe (Google Drive and a USB stick): every app update must be signed with this key. None of these files is uploaded to GitHub.
+1. **On your PC, once:** double-click **`PREPARE-PRODUCTION.cmd`**. It creates the app's release signing key (`app\android\app\release.jks`) and **`PRODUCTION-SECRETS.txt`** with the values to paste below, then opens it. Back up both files somewhere safe (Google Drive and a USB stick): every app update must be signed with this key. Neither file is uploaded to GitHub.
 2. **Render:** sign up at render.com with your GitHub account and allow it to see the `learn-app` repository. Then **New → Blueprint**, pick `learn-app`, and fill in the values it asks for (`ADMIN_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` from `PRODUCTION-SECRETS.txt`, plus your email login for password-reset mails) and confirm. It creates a paid web service with a 1 GB disk for uploaded images and a PostgreSQL database in Singapore. The first deploy also adds the sample courses, batches and FAQs (only while there are no courses) and your admin user.
 3. **Domain:** where you manage learnincreation.com, add a **CNAME** record: name `api`, value the service's address shown in Render (like `learnincreation-api.onrender.com`). Render then verifies `api.learnincreation.com` and sets up HTTPS by itself.
 4. **Check:** `https://api.learnincreation.com/api/health` shows `"status": "ok"`. Sign in to the admin panel at `https://api.learnincreation.com/<your ADMIN_URL>` and review the sample courses, prices and site settings.
-5. **Public app download** (on github.com):
-   1. Create a **public** repository named **`learn-app-releases`** and tick **Add a README file**. It holds the app downloads and the workflow that builds them; the code stays in `learn-app`.
-   2. In `learn-app-releases`, choose **Add file → Create new file**. Name it `.github/workflows/build-apk.yml`, paste in the whole of `scripts/github/build-apk.yml` from this project, and click **Commit changes**.
-   3. In `learn-app-releases` → **Settings → Secrets and variables → Actions → New repository secret**, add `ANDROID_KEY_ALIAS`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD` and `ANDROID_KEYSTORE_BASE64`, with the values from `PRODUCTION-SECRETS.txt` (the last one is the text in `PRODUCTION-KEYSTORE-BASE64.txt`).
-   4. **Actions → Build and publish the app → Run workflow.** About 10–15 minutes later the app is published. Share this link; it always gives the newest version: `https://github.com/imcodemaster/learn-app-releases/releases/latest/download/LearnInCreation.apk`
+5. **Public app download:**
+   1. Once, on github.com: create a **public** repository named **`learn-app-releases`** with **Add a README file** ticked. Then **Add file → Create new file**, name it `.github/workflows/publish.yml`, paste in `scripts/github/publish.yml` from this project and click **Commit changes**.
+   2. Double-click **`PUBLISH-APP.cmd`**. It builds the app for `https://api.learnincreation.com`, checks that it is signed with your release key, uploads it to the `apk` branch of `learn-app-releases` and adds a version tag; the workflow then publishes the release (about 10 minutes in all). Share this link; it always gives the newest version: `https://github.com/imcodemaster/learn-app-releases/releases/latest/download/LearnInCreation.apk`
 
-   The workflow builds the code on `learn-app`'s `main` branch, so `learn-app` has to stay public for it. If you make `learn-app` private, also add a secret `SOURCE_TOKEN` in `learn-app-releases`: a fine-grained token with read-only **Contents** access to `learn-app`.
+   No secrets go to GitHub: the key stays on your PC, and Git uses the GitHub sign-in from `PUSH-TO-GITHUB.cmd`.
 6. **Payments and SMS later:** add `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` (section 4), or `SMS_BACKEND` with your provider's keys, under the Render service → **Environment**, and save. Render restarts the backend. Payments start working and "Continue with mobile number" appears in the app; no app update is needed. Until then students sign in by email, and buying shows "Online payments are not set up yet".
-7. **Updates:** backend changes go live when you push them (`PUSH-TO-GITHUB.cmd`). For app changes, push, then run the workflow in `learn-app-releases` again; students install the new version from the same link over the old one.
+7. **Updates:** backend changes go live when you push them (`PUSH-TO-GITHUB.cmd`). For app changes, double-click `PUBLISH-APP.cmd` (and `PUSH-TO-GITHUB.cmd` to keep the code on GitHub); students install the new version from the same link over the old one.
 
 Phones that have the Wi-Fi test APK need to uninstall it first, because it was signed with a different key.
 

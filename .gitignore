@@ -1,7 +1,8 @@
-# Local output of scripts/windows/setup_and_build.ps1 and push_to_github.ps1
+# Local output of the scripts in scripts/windows/
 setup-log.txt
 setup-status.txt
 push-log.txt
+publish-log.txt
 commit-message.txt
 .source-unpacked
 _source.zip
