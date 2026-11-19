@@ -18,12 +18,15 @@ RUN DJANGO_SECRET_KEY=build-step-only-not-a-real-secret-0123456789abcdef \
     sh -c "python manage.py makemigrations accounts core courses payments studycenter --noinput \
            && python manage.py collectstatic --noinput"
 
+# The container starts as root only so the entrypoint can hand the uploads
+# folder (often a mounted disk) to the "app" user; everything else, including
+# the web server, then runs as "app".
 RUN useradd --create-home --uid 10001 app \
     && mkdir -p /app/media \
     && chown -R app:app /app/media \
     && chmod +x /app/deploy/docker-entrypoint.sh
-USER app
 
+# Hosting services such as Render set PORT; locally it is 8000.
 EXPOSE 8000
 ENTRYPOINT ["/app/deploy/docker-entrypoint.sh"]
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "60", "--access-logfile", "-"]
+CMD ["sh", "-c", "exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-3} --timeout 60 --access-logfile -"]

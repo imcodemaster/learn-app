@@ -7,7 +7,12 @@ from .sms_providers import SmsError, otp_message, send_fast2sms, send_msg91, sen
 
 logger = logging.getLogger("learnincreation")
 
-__all__ = ["SmsError", "send_otp_sms"]
+__all__ = ["SmsError", "send_otp_sms", "sms_available"]
+
+
+def sms_available() -> bool:
+    """Whether codes can reach phones: production needs a real SMS provider."""
+    return not (settings.SMS_BACKEND == "console" and settings.APP_ENV == "production")
 
 
 def send_otp_sms(phone_e164: str, code: str) -> None:

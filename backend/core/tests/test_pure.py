@@ -16,6 +16,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from PIL import Image
 
 from accounts.google import GoogleTokenError, verify_google_id_token
+from config.dburl import database_from_url
 from accounts.sms_providers import SmsError, send_fast2sms, send_msg91, send_twilio
 from core.images import ImageRejected, sanitize_image_bytes
 from core.utils import (
@@ -282,3 +283,32 @@ class SmsProviderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DatabaseUrlTests(unittest.TestCase):
+    def test_postgres_address(self):
+        config = database_from_url(
+            "postgres://app_user:p%40ss%3Aword@dpg-abc.singapore-postgres.render.com/learn_db?sslmode=require"
+        )
+        self.assertEqual(config["ENGINE"], "django.db.backends.postgresql")
+        self.assertEqual(config["NAME"], "learn_db")
+        self.assertEqual(config["USER"], "app_user")
+        self.assertEqual(config["PASSWORD"], "p@ss:word")
+        self.assertEqual(config["HOST"], "dpg-abc.singapore-postgres.render.com")
+        self.assertEqual(config["PORT"], "5432")
+        self.assertEqual(config["OPTIONS"], {"sslmode": "require"})
+
+    def test_internal_address_and_mysql(self):
+        config = database_from_url("postgresql://u:pw@dpg-abc-a:6543/db")
+        self.assertEqual((config["HOST"], config["PORT"], config["NAME"]), ("dpg-abc-a", "6543", "db"))
+        self.assertNotIn("OPTIONS", config)
+        mysql = database_from_url("mysql://u:pw@db.example.com/shop")
+        self.assertEqual(mysql["ENGINE"], "django.db.backends.mysql")
+        self.assertEqual(mysql["PORT"], "3306")
+        self.assertEqual(mysql["OPTIONS"]["charset"], "utf8mb4")
+
+    def test_rejects_unusable_addresses(self):
+        for url in ("sqlite:///db.sqlite3", "postgres://u:pw@host/", "postgres://u:pw@host:notaport/db",
+                    "postgres:///db"):
+            with self.assertRaises(ValueError, msg=url):
+                database_from_url(url)

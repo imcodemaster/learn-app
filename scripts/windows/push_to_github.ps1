@@ -120,6 +120,7 @@ try {
     }
     $private = @('backend/.env', 'backend/db.sqlite3', 'backend/ADMIN-LOGIN.txt', 'backend/media/x.png',
                  'app/android/local.properties', 'app/android/key.properties', 'app/android/app/upload.jks',
+                 'app/android/app/release.jks', 'PRODUCTION-SECRETS.txt', 'PRODUCTION-KEYSTORE-BASE64.txt',
                  'LearnInCreation-WiFi-test.apk', 'setup-log.txt')
     foreach ($p in $private) {
         if ((Invoke-Git -GitArgs @('check-ignore', '-q', '--no-index', '--', $p) -Quiet) -ne 0) {
@@ -131,8 +132,8 @@ try {
     }
     Info 'Private files are excluded.'
 
-    $paths = @('.gitignore', '.gitattributes', 'README.md', 'SETUP-AND-BUILD-ON-WINDOWS.cmd', 'START-BACKEND.cmd',
-               'PUSH-TO-GITHUB.cmd', 'scripts', 'app', 'backend', '.github')
+    $paths = @('.gitignore', '.gitattributes', 'README.md', 'render.yaml', 'SETUP-AND-BUILD-ON-WINDOWS.cmd',
+               'START-BACKEND.cmd', 'PUSH-TO-GITHUB.cmd', 'PREPARE-PRODUCTION.cmd', 'scripts', 'app', 'backend', '.github')
     $present = @($paths | Where-Object { Test-Path (Join-Path $Root $_) })
     if ((Invoke-Git -GitArgs (@('add', '-A', '--') + $present) -Quiet) -ne 0) { throw 'git add failed. See push-log.txt.' }
     $staged = @((Get-GitText @('diff', '--cached', '--name-only')) -split "`n" | Where-Object { $_ })
@@ -140,8 +141,12 @@ try {
     foreach ($f in $staged) { Write-Log ('  ' + $f) }
 
     $hasCommits = (Invoke-Git -GitArgs @('rev-parse', '--verify', '-q', 'HEAD') -Quiet) -eq 0
+    # An optional commit-message.txt in this folder (never uploaded) sets the message of the next commit.
+    $customMessage = Join-Path $Root 'commit-message.txt'
     if ($staged.Count -gt 0) {
-        if ($hasCommits) {
+        if (Test-Path $customMessage) {
+            $code = Invoke-Git -GitArgs @('commit', '-q', '-F', $customMessage)
+        } elseif ($hasCommits) {
             $code = Invoke-Git -GitArgs @('commit', '-q', '-m', ('Update LearnInCreation app (' + (Get-Date -Format 'yyyy-MM-dd HH:mm') + ')'))
         } else {
             $messageFile = Join-Path $env:TEMP 'learnincreation-first-commit.txt'
@@ -156,6 +161,7 @@ try {
     } else {
         Info 'No new changes since the last commit.'
     }
+    Remove-Item $customMessage -Force -ErrorAction SilentlyContinue
 
     Step 'Connecting to GitHub'
     $origin = Get-GitText @('remote', 'get-url', 'origin')
@@ -170,6 +176,27 @@ try {
     if (-not $origin) { $null = Invoke-Git -GitArgs @('remote', 'add', 'origin', $RepoUrl) }
     elseif ($origin -ne $RepoUrl) { $null = Invoke-Git -GitArgs @('remote', 'set-url', 'origin', $RepoUrl) }
     Info ('Repository: ' + $RepoUrl)
+
+    Step 'Getting changes made on GitHub (for example on the website)'
+    $remoteMain = Invoke-Git -GitArgs @('ls-remote', '--exit-code', '--heads', 'origin', 'main') -Quiet
+    if ($remoteMain -eq 0) {
+        if ((Invoke-Git -GitArgs @('fetch', 'origin', 'main')) -ne 0) { throw 'Could not read the repository on GitHub. See push-log.txt.' }
+        $behind = Get-GitText @('rev-list', '--count', 'HEAD..FETCH_HEAD')
+        if ($behind -match '^\d+$' -and [int]$behind -gt 0) {
+            Info ('GitHub has ' + $behind + ' commit(s) that are not on this PC yet. Adding them here first...')
+            if ((Invoke-Git -GitArgs @('rebase', '--autostash', 'FETCH_HEAD')) -ne 0) {
+                $null = Invoke-Git -GitArgs @('rebase', '--abort') -Quiet
+                throw 'The changes on GitHub clash with the changes on this PC, so nothing was uploaded. See push-log.txt.'
+            }
+            Info 'This PC now has the changes from GitHub as well.'
+        } else {
+            Info 'Nothing new on GitHub.'
+        }
+    } elseif ($remoteMain -eq 2) {
+        Info 'The repository on GitHub is still empty.'
+    } else {
+        Info 'Could not check the repository on GitHub yet; the upload below will tell.'
+    }
 
     Step 'Uploading (the first time, a GitHub sign-in window opens: choose "Sign in with your browser")'
     Write-Log 'git push -u origin main'

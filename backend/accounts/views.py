@@ -37,7 +37,7 @@ from .services import (
     revoke_all_tokens,
     user_payload,
 )
-from .sms import SmsError, send_otp_sms
+from .sms import SmsError, send_otp_sms, sms_available
 
 logger = logging.getLogger("learnincreation")
 
@@ -92,6 +92,9 @@ def login(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def otp_send(request):
+    if not sms_available():
+        raise ApiError(503, "phone_login_unavailable",
+                       "Sign-in with a mobile number isn't available yet. Please continue with email.")
     ip = client_ip(request)
     ratelimit.hit(f"otp-send:ip:{ip}", 20, 3600)
     serializer = OtpSendSerializer(data=request.data)

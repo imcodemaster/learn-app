@@ -2,6 +2,7 @@
 setup-log.txt
 setup-status.txt
 push-log.txt
+commit-message.txt
 .source-unpacked
 _source.zip
 *.apk
@@ -9,3 +10,7 @@ _source.zip
 # Files the Claude desktop app saves into this folder, and zip copies of the project
 Claude outputs/
 *.zip
+
+# Release key passwords, the key as text and production values (PREPARE-PRODUCTION.cmd)
+PRODUCTION-SECRETS.txt
+PRODUCTION-KEYSTORE-BASE64.txt

@@ -200,8 +200,9 @@ class PhoneOtpTests(ApiTestCase):
     @override_settings(APP_ENV="production")
     def test_console_sms_refused_in_production(self):
         response = self.send()
-        self.assertEqual(response.status_code, 502)
-        self.assertFalse(OtpCode.objects.exists())  # the unsent code was discarded
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(self.error(response)["code"], "phone_login_unavailable")
+        self.assertFalse(OtpCode.objects.exists())  # no code is created without an SMS provider
 
 
 @override_settings(GOOGLE_CLIENT_IDS=["web-client.apps.googleusercontent.com"])

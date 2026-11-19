@@ -76,6 +76,13 @@ if APP_ENV == "production" and not TESTING and len(SECRET_KEY) < 40:
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,10.0.2.2")
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
+# Render gives each service an address such as learnincreation-api.onrender.com
+# and passes it in RENDER_EXTERNAL_HOSTNAME; accept it next to your own domain.
+RENDER_EXTERNAL_HOSTNAME = env("RENDER_EXTERNAL_HOSTNAME").strip()
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+    CSRF_TRUSTED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")
+
 # Public base URL of this server, e.g. https://api.learnincreation.com.
 # Used to build absolute links to uploaded images. Optional: when empty the
 # request's own host is used.
@@ -133,7 +140,18 @@ TEMPLATES = [
 # Database (PostgreSQL recommended; MySQL and SQLite also supported)
 # --------------------------------------------------------------------------
 DB_ENGINE = env("DB_ENGINE", "sqlite").lower()
-if DB_ENGINE in ("postgres", "postgresql"):
+# A hosting service's DATABASE_URL (postgres://user:password@host:port/name)
+# takes priority over the separate DB_* settings below.
+DATABASE_URL = env("DATABASE_URL").strip()
+if DATABASE_URL:
+    from config.dburl import database_from_url
+
+    try:
+        DATABASES = {"default": database_from_url(DATABASE_URL)}
+    except ValueError as exc:
+        raise ImproperlyConfigured(str(exc)) from exc
+    DB_ENGINE = "mysql" if DATABASES["default"]["ENGINE"].endswith("mysql") else "postgres"
+elif DB_ENGINE in ("postgres", "postgresql"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -223,6 +241,11 @@ MAX_IMAGE_UPLOAD_BYTES = 4 * 1024 * 1024
 # Django REST Framework (the mobile app API)
 # --------------------------------------------------------------------------
 NUM_PROXIES = env_int("NUM_PROXIES", 0)  # set to 1 behind Nginx / a load balancer
+# Header in which a trusted proxy passes the visitor's real IP, e.g. True-Client-IP
+# on Render (its Cloudflare edge sets it) or CF-Connecting-IP behind Cloudflare.
+# Only set this when every request reaches the server through that proxy.
+_client_ip_header = env("CLIENT_IP_HEADER").strip()
+CLIENT_IP_HEADER = ("HTTP_" + _client_ip_header.upper().replace("-", "_")) if _client_ip_header else ""
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["accounts.authentication.BearerTokenAuthentication"],
@@ -231,8 +254,8 @@ REST_FRAMEWORK = {
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
     "EXCEPTION_HANDLER": "core.api.exception_handler",
     "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
+        "core.throttling.AnonThrottle",
+        "core.throttling.UserThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {"anon": "120/min", "user": "300/min"},
     "NUM_PROXIES": NUM_PROXIES,
@@ -256,6 +279,8 @@ if env_bool("DJANGO_BEHIND_PROXY", False):
 
 if not DEBUG:
     SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", True) and not TESTING
+    # Hosting health checks call this over plain http from inside their network.
+    SECURE_REDIRECT_EXEMPT = [r"^api/health$"]
     SESSION_COOKIE_SECURE = not TESTING
     CSRF_COOKIE_SECURE = not TESTING
     SECURE_HSTS_SECONDS = env_int("DJANGO_HSTS_SECONDS", 31536000)

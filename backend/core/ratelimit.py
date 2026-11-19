@@ -9,11 +9,16 @@ from django.conf import settings
 from django.core.cache import cache
 
 from .api import ApiError
-from .utils import client_ip_from
+from .utils import client_ip_from, valid_ip_or_none
 
 
 def client_ip(request) -> str:
     meta = request.META
+    if settings.CLIENT_IP_HEADER:
+        # Set by a trusted proxy in front of the server (e.g. True-Client-IP on Render).
+        trusted = valid_ip_or_none(meta.get(settings.CLIENT_IP_HEADER, "").strip())
+        if trusted:
+            return trusted
     return client_ip_from(meta.get("REMOTE_ADDR", ""), meta.get("HTTP_X_FORWARDED_FOR", ""), settings.NUM_PROXIES)
 
 

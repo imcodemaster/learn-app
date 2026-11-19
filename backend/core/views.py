@@ -5,6 +5,8 @@ from django.views import defaults
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 
+from accounts.sms import sms_available
+
 from . import ratelimit
 from .api import ApiError, ok, payments_mode
 from .models import Faq, SiteSettings
@@ -43,7 +45,7 @@ def app_info(request):
         "terms_url": site.terms_url,
         "faq": [{"q": f.question, "a": f.answer} for f in Faq.objects.filter(is_active=True)],
         "payments": {"mode": mode, "key_id": settings.RAZORPAY_KEY_ID if mode == "razorpay" else ""},
-        "auth": {"google_enabled": bool(settings.GOOGLE_CLIENT_IDS), "phone_enabled": True},
+        "auth": {"google_enabled": bool(settings.GOOGLE_CLIENT_IDS), "phone_enabled": sms_available()},
     })
 
 

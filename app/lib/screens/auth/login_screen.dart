@@ -30,6 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final info = context.watch<Session>().info;
     final showGoogle = GoogleAuth.isConfigured && info.googleEnabled;
+    final showPhone = info.phoneEnabled;
     return Scaffold(
       appBar: AppBar(),
       body: SafeArea(
@@ -68,17 +69,24 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 12),
             ],
-            FilledButton.icon(
-              onPressed: () => _open(const PhoneLoginScreen()),
-              icon: const Icon(Icons.phone_iphone),
-              label: const Text('Continue with mobile number'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => _open(const EmailAuthScreen()),
-              icon: const Icon(Icons.mail_outline),
-              label: const Text('Continue with email'),
-            ),
+            if (showPhone) ...[
+              FilledButton.icon(
+                onPressed: () => _open(const PhoneLoginScreen()),
+                icon: const Icon(Icons.phone_iphone),
+                label: const Text('Continue with mobile number'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => _open(const EmailAuthScreen()),
+                icon: const Icon(Icons.mail_outline),
+                label: const Text('Continue with email'),
+              ),
+            ] else
+              FilledButton.icon(
+                onPressed: () => _open(const EmailAuthScreen()),
+                icon: const Icon(Icons.mail_outline),
+                label: const Text('Continue with email'),
+              ),
             const SizedBox(height: 28),
             Wrap(
               alignment: WrapAlignment.center,

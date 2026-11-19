@@ -27,6 +27,7 @@ class AppInfo {
     required this.faq,
     required this.paymentsMode,
     required this.googleEnabled,
+    this.phoneEnabled = true,
   });
 
   final String orgName;
@@ -46,6 +47,9 @@ class AppInfo {
   final List<FaqItem> faq;
   final String paymentsMode;
   final bool googleEnabled;
+
+  /// False on a live server that has no SMS provider yet (sign in by email instead).
+  final bool phoneEnabled;
 
   /// Used until the server answers (or when offline).
   static const fallback = AppInfo(
@@ -92,6 +96,7 @@ class AppInfo {
           .toList(),
       paymentsMode: jStr(payments['mode'], 'razorpay'),
       googleEnabled: jBool(auth['google_enabled']),
+      phoneEnabled: auth['phone_enabled'] != false,
     );
   }
 }

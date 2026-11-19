@@ -23,8 +23,19 @@ def _first_of_next_month(today: date) -> date:
 class Command(BaseCommand):
     help = "Adds the LearnInCreation sample catalog, lessons, study-center batches, library shifts and FAQs."
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--if-empty",
+            action="store_true",
+            help="Only add the samples when there are no courses yet (for automatic runs on a live server, "
+                 "so sample courses you deleted don't come back).",
+        )
+
     @transaction.atomic
     def handle(self, *args, **options):
+        if options.get("if_empty") and Course.objects.exists():
+            self.stdout.write("Courses already exist: sample data not added.")
+            return
         site = SiteSettings.load()
         if not site.about:
             site.about = content.ABOUT

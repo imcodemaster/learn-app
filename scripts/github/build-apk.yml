@@ -1,0 +1,157 @@
+# Builds the LearnInCreation Android app from the learn-app repository and
+# publishes it in THIS repository (learn-app-releases) as the public download.
+# It belongs at .github/workflows/build-apk.yml in learn-app-releases; learn-app
+# keeps a copy at scripts/github/build-apk.yml.
+# The newest version is always at:
+#   https://github.com/imcodemaster/learn-app-releases/releases/latest/download/LearnInCreation.apk
+#
+# Publish a new version: Actions tab > "Build and publish the app" > "Run workflow".
+#
+# One-time setup in this repository: Settings > Secrets and variables > Actions >
+# "New repository secret". The values are in PRODUCTION-SECRETS.txt on the PC
+# (made by PREPARE-PRODUCTION.cmd):
+#   ANDROID_KEY_ALIAS, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD,
+#   ANDROID_KEYSTORE_BASE64
+# Optional variables (same page, "Variables" tab): API_BASE_URL (default
+# https://api.learnincreation.com), GOOGLE_SERVER_CLIENT_ID, SOURCE_REPO
+# (default <owner>/learn-app).
+# If learn-app is made private later, also add a secret SOURCE_TOKEN: a
+# fine-grained token with "Contents: Read-only" access to learn-app.
+name: Build and publish the app
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish as the new public download"
+        type: boolean
+        default: true
+      api_base_url:
+        description: "Server address for this build (leave empty for https://api.learnincreation.com)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-and-publish
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      API_BASE_URL: ${{ inputs.api_base_url || vars.API_BASE_URL || 'https://api.learnincreation.com' }}
+      GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
+      KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      PUBLISH: ${{ inputs.publish }}
+      SOURCE_REPO: ${{ vars.SOURCE_REPO || format('{0}/learn-app', github.repository_owner) }}
+    defaults:
+      run:
+        working-directory: source/app
+    steps:
+      - name: Get the app's code from learn-app
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.SOURCE_REPO }}
+          ref: main
+          path: source
+          token: ${{ secrets.SOURCE_TOKEN || github.token }}
+          persist-credentials: false
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          # The version the app was last built and tested with on the PC.
+          flutter-version: "3.50.0"
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Unit tests
+        run: flutter test
+
+      - name: Check the signing key and server address
+        if: env.PUBLISH == 'true'
+        run: |
+          missing=""
+          [ -n "$KEYSTORE_BASE64" ] || missing="$missing the ANDROID_KEYSTORE_BASE64 secret (and the other ANDROID_KEY... secrets);"
+          case "$API_BASE_URL" in https://*) ;; *) missing="$missing a server address starting with https://;" ;; esac
+          if [ -n "$missing" ]; then
+            echo "::error::Publishing needs:$missing see the notes at the top of this workflow file."
+            exit 1
+          fi
+
+      - name: Set up release signing
+        if: env.KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          printf '%s' "$KEYSTORE_BASE64" | tr -d ' \t\r\n' | base64 --decode > android/app/release.jks
+          {
+            echo "storeFile=release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > android/key.properties
+
+      - name: Version
+        id: version
+        run: |
+          name=$(sed -n -E 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' pubspec.yaml)
+          echo "name=${name:-1.0.0}" >> "$GITHUB_OUTPUT"
+          # Each build gets a higher number, so phones accept it as an update.
+          echo "code=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build release APK
+        run: >
+          flutter build apk --release
+          --build-name "${{ steps.version.outputs.name }}"
+          --build-number "${{ steps.version.outputs.code }}"
+          --dart-define=API_BASE_URL="$API_BASE_URL"
+          --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID"
+
+      - name: Name the APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk build/LearnInCreation.apk
+
+      - name: Keep the APK with this run
+        uses: actions/upload-artifact@v6
+        with:
+          name: LearnInCreation-${{ steps.version.outputs.name }}-build${{ steps.version.outputs.code }}
+          path: source/app/build/LearnInCreation.apk
+          if-no-files-found: error
+
+      - name: Publish the public download
+        if: env.PUBLISH == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ steps.version.outputs.name }}-build${{ steps.version.outputs.code }}
+          name: LearnInCreation ${{ steps.version.outputs.name }} (build ${{ steps.version.outputs.code }})
+          body: |
+            LearnInCreation Android app, version ${{ steps.version.outputs.name }} (build ${{ steps.version.outputs.code }}).
+
+            Download **LearnInCreation.apk** below on your Android phone and open it. If the phone asks, allow installing apps from your browser or Files app.
+
+            The newest version is always at https://github.com/${{ github.repository }}/releases/latest/download/LearnInCreation.apk
+
+            Built from ${{ env.SOURCE_REPO }} at commit ${{ steps.version.outputs.commit }}.
+          files: source/app/build/LearnInCreation.apk
+          fail_on_unmatched_files: true
+          make_latest: "true"

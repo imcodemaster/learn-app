@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:learnincreation/models/app_info.dart';
 import 'package:learnincreation/models/course.dart';
 import 'package:learnincreation/models/study_center.dart';
 import 'package:learnincreation/models/user.dart';
@@ -48,5 +49,12 @@ void main() {
     final user = AppUser.fromJson({'id': 1, 'name': 'Asha Rawat', 'has_password': true});
     expect(user.initials, 'AR');
     expect(user.needsName, isFalse);
+  });
+
+  test('reads which sign-in options the server offers', () {
+    expect(AppInfo.fromJson({'auth': {'phone_enabled': false}}).phoneEnabled, isFalse);
+    expect(AppInfo.fromJson({'auth': {'phone_enabled': true}}).phoneEnabled, isTrue);
+    expect(AppInfo.fromJson({}).phoneEnabled, isTrue); // older servers: keep phone sign-in
+    expect(AppInfo.fallback.phoneEnabled, isTrue);
   });
 }
